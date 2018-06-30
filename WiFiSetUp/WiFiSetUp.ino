@@ -1,3 +1,5 @@
+#include <Wire.h>
+
 #include <ESP8266WiFi.h>
 #include "Timer.h"   
 
@@ -15,6 +17,8 @@ void setup()
 {
 	Serial.begin(115200);
 	delay(100);
+
+   Wire.begin(0,2); 
 
 	Serial.println();
 	Serial.println();
@@ -94,6 +98,15 @@ void SendToServer (){
   Serial.println("closing connection");
 
   Serial.println("|----------------------------------|");
+}
 
-  
+void requestFun(){
+      Wire.requestFrom(8, 6);    // request 6 bytes from slave device #8
+      
+      while (Wire.available()) { // slave may send less than requested
+      char c = Wire.read(); // receive a byte as character
+      Serial.println();         // print the character
+      Serial.print("Received from Uno: ");         // print the character
+      Serial.println(c);         // print the character
+  }
   }
