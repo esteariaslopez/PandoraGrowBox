@@ -6,7 +6,7 @@
 const char* ssid = "Motoratones";
 const char* password = "trama1234";
 
-const char* host ="192.168.100.2";
+const char* host ="192.168.100.100";
 
 const unsigned long PERIOD1 = 1000;    //one second
 const unsigned long PERIOD2 = 20000;   //ten seconds
@@ -65,7 +65,7 @@ void SendToServer (){
 
   value = random(-15, 40);
 
-  String url = "http://192.168.100.2/prueba.php";
+  String url = "http://192.168.100.100/prueba.php";
 
   String data = "serie=888&temp="+String(value);
 
