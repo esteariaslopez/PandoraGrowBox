@@ -15,16 +15,8 @@
 #define WPUMPPIN 4
 #define SDENABLEPIN 53
 
-boolean LIGHT = false;
-boolean FAN = false;
-int EXTRACTOR = 0;
-int WPUMP =0;
-
 LiquidCrystal lcd(38, 36, 34, 32, 30, 28);//RS-EN-D4-D5-D6-D7
 int screen = 0;
-
-//LIGHT TIMER
-boolean MODE = false; //true = bloom mode //false = growing mode
 
 const double G_HOURON = 4;
 const double G_MINUTEON = 0;
@@ -37,8 +29,8 @@ const double B_HOUROFF = 17;
 const double B_MINUTEOFF = 0;
 
 //EXTRACTOR
-const int tempON = 24;
-const int tempOFF = 23;
+const int tempON = 21;
+const int tempOFF = 20;
 
 const int minMOI = 820;
 const int unMOI = 500;
@@ -53,13 +45,25 @@ const unsigned long Time_LIGHT = 10000;
 const unsigned long Time_MOI = 1000;
 const unsigned long Time_FAN = 30000;
 
-float DHTData[4] = {0,0,0,0}; 
-const int HR_in = 0;
-const int T_in = 1;
-const int HR_out = 2;
-const int T_out = 3;
+int charData = 25;
+int DeviceNum = 8;
 
-int moi = 0;
+float DHTData[5] = {0};
+boolean StateData[3] = {true,false,true};
+byte ActuatorData[2] = {0};
+
+byte Data[25];
+  
+float     HR_IN   = 0;
+float     T_IN     = 0;
+float     HR_OUT   = 0;
+float     T_OUT    = 0;
+float     MOI      = 0;
+boolean   MODE     = false; //true = bloom mode //false = growing mode
+boolean   LIGHT    = false;
+boolean   FAN      = false;
+byte      EXTRACTOR = 0;
+byte      WPUMP     =0;
 
 
 DHT dht_in(DHT_IN_PIN, DHTTYPE);
@@ -86,75 +90,119 @@ void setup() {
   lcd.setCursor(0, 0);
   lcd.print("PANDORA BOX");
 
-//  delay(1000);
-//  lcd.setCursor(0, 1);
-//  if(SD.begin(SDENABLEPIN)){lcd.print("SD READY");}else{lcd.print("SD FAILED");}
-//  delay(1000);
-//  if (writeHEADER){lcd.print("  OK");}else{lcd.print("  ERROR");}
-
   timer.every(Time_DHT, readDHT);
   timer.every(Time_MOI, readMOI);
   timer.every(Time_EXT, extCTRL);
   timer.every(Time_LIGHT, lightCTRL);
   timer.every(Time_FAN, fanCTRL);
-  timer.every(Time_WATER, waterCTRL);
+//  timer.every(Time_WATER, waterCTRL);
   
   timer.every(Time_LCD, writeLCD);
-  //timer.every(Time_MSD, writeMSD);
 
   dht_in.begin();
   dht_out.begin();
-  Wire.begin(8);
+  Wire.begin(DeviceNum);
   rtc.begin();
 
-//  /Wire.begin(8);                // join i2c bus with address #8
   Wire.onRequest(requestEvent); // register event
   
   if (! rtc.isrunning()) {
     rtc.adjust(DateTime(__DATE__, __TIME__));
   }
+ StateData[0] = MODE;
 }
 
 void loop() {
   timer.update();
 }
 
-void requestEvent() {
-  Wire.write("HALLO "); // respond with message of 6 bytes
-  // as expected by master
+void requestEvent() { 
+        byte *ptr = (byte*) &DHTData[0];
+        Data[0]= byte(*(ptr));
+        Data[1]= byte(*(ptr+1));
+        Data[2]= byte(*(ptr+2));
+        Data[3]= byte(*(ptr+3));
+        
+        ptr = (byte*) &DHTData[1];
+        Data[4]= byte(*(ptr));
+        Data[5]= byte(*(ptr+1));
+        Data[6]= byte(*(ptr+2));
+        Data[7]= byte(*(ptr+3));
+        
+        ptr = (byte*) &DHTData[2];
+        Data[8]= byte(*(ptr));
+        Data[9]= byte(*(ptr+1));
+        Data[10]= byte(*(ptr+2));
+        Data[11]= byte(*(ptr+3));
+        
+        ptr = (byte*) &DHTData[3];
+        Data[12]= byte(*(ptr));
+        Data[13]= byte(*(ptr+1));
+        Data[14]= byte(*(ptr+2));
+        Data[15]= byte(*(ptr+3));
+        
+        ptr = (byte*) &DHTData[4];
+        Data[16]= byte(*(ptr));
+        Data[17]= byte(*(ptr+1));
+        Data[18]= byte(*(ptr+2));
+        Data[19]= byte(*(ptr+3));
+        
+        ptr = (byte*) &StateData[0];
+        Data[20]= byte(*(ptr));
+        
+        ptr = (byte*) &StateData[1];
+        Data[21]= byte(*(ptr));
+        
+        ptr = (byte*) &StateData[2];
+        Data[22]= byte(*(ptr));
+        
+        ptr = (byte*) &ActuatorData[0];
+        Data[23]= byte(*(ptr));
+        
+        ptr = (byte*) &ActuatorData[1];
+        Data[24]= byte(*(ptr));
+        
+        
+        for (int i = 0; i < charData; i++){
+          Wire.write(Data[i]); // respond with message of 6 bytes
+        }
 }
   
 void readDHT(){
-    DHTData[HR_in] = dht_in.readHumidity();
-    DHTData[T_in] = dht_in.readTemperature();
+    HR_IN = dht_in.readHumidity();
+    T_IN = dht_in.readTemperature();
     
-    DHTData[HR_out] = dht_out.readHumidity();
-    DHTData[T_out] = dht_out.readTemperature();
-  }
-  
-void extCTRL(){
-    if (DHTData[T_in] >= tempON){EXTRACTOR = 100;}else{
-      if (DHTData[T_in] <= tempOFF){EXTRACTOR = 0;}else{
-          if (isnan(DHTData[T_in])){if(LIGHT){EXTRACTOR = 100;}else{EXTRACTOR = 0;};}
-        }
-    }
-    int PWM = map(EXTRACTOR, 0, 100, 0, 255);
-    analogWrite(EXTPIN,PWM);
+    HR_OUT = dht_out.readHumidity();
+    T_OUT = dht_out.readTemperature();
 
-//    int potval = analogRead(POTPIN); Serial.print(potval);
-//    potval = map(potval, 0, 1023, 0, 255);Serial.print("  ");
-//    analogWrite(EXTPIN,potval);Serial.println(potval);
+    DHTData[0] = HR_IN;
+    DHTData[1] = T_IN;
+    DHTData[2] = HR_OUT;
+    DHTData[3] = T_OUT;
   }
 void readMOI(){
     int moival = analogRead(MOIPIN);
-    moi = moival;
+    MOI = int(moival);
+    DHTData[4] = MOI;
+  }
+  
+void extCTRL(){
+    if (T_IN >= tempON){EXTRACTOR = 100;}else{
+      if (T_IN <= tempOFF){EXTRACTOR = 0;}else{
+          if (isnan(T_IN)){if(LIGHT){EXTRACTOR = 100;}else{EXTRACTOR = 0;};}
+        }
+    }
+    int PWM = map(EXTRACTOR, 0, 100, 0, 255);
+    analogWrite(EXTPIN,PWM);//StateData
+    ActuatorData[0] = EXTRACTOR;
   }
   
 void waterCTRL(){ 
-    if (moi <= minMOI && moi >= unMOI){
+    if (MOI <= minMOI && MOI >= unMOI){
       WPUMP = 100;
       int PWM = map(WPUMP, 0, 100, 0, 255);
       analogWrite(WPUMPPIN,PWM);
+      ActuatorData[1] = WPUMP;
       
       lcd.clear();
       lcd.setCursor(0, 0);
@@ -167,6 +215,8 @@ void waterCTRL(){
       PWM = map(WPUMP, 0, 100, 0, 255);
       analogWrite(WPUMPPIN,PWM);
       }else{WPUMP = 0;};
+      ActuatorData[1] = WPUMP;
+      
   }
   
 void lightCTRL(){
@@ -188,68 +238,16 @@ void lightCTRL(){
       }else{LIGHT = false;}
       
     digitalWrite(LIGHTPIN, !LIGHT);
+    StateData[1] = LIGHT;
   }
 
   
 void fanCTRL(){
     if (FAN){FAN = false;} else{FAN = true;}      
     digitalWrite(FANPIN, !FAN);
+    StateData[2] = FAN;
+
   }
-
-//bool writeHEADER(){
-//    Serial.print("DD.MM.YYYY,hh:mm:ss,");
-//    Serial.print("TEMP");
-//    Serial.print(",");
-//    Serial.print("HR");
-//    Serial.print(",");
-//    Serial.print("MOI");
-//    Serial.print(",");
-//    Serial.print("LIGHT");
-//    Serial.print(",");
-//    Serial.print("FAN");
-//    Serial.print(",");
-//    Serial.print("EXT");
-//    Serial.println();
-//
-//    Data = SD.open("test.txt", FILE_WRITE);
-//    if (!Data){
-//        Data.print("DD.MM.YYYY,hh:mm:ss,");
-//        Data.print("TEMP");
-//        Data.print(",");
-//        Data.print("HR");
-//        Data.print(",");
-//        Data.print("MOI");
-//        Data.print(",");
-//        Data.print("LIGHT");
-//        Data.print(",");
-//        Data.print("FAN");
-//        Data.print(",");
-//        Data.print("EXT");
-//        Data.println();
-//      }
-//      else{Data.close(); return false;}
-//    Data.close();
-//    return true;
-//  }
-//void writeMSD(){
-//    DateTime now = rtc.now();
-//    char buf[100];
-//    strncpy(buf,"DD.MM.YYYY,hh:mm:ss,\0",100);
-//    Serial.print(now.format(buf));
-//    Serial.print(temp);
-//    Serial.print(",");
-//    Serial.print(hum);
-//    Serial.print(",");
-//    Serial.print(moi);
-//    Serial.print(",");
-//    if (LIGHT){Serial.print("ON");}else{Serial.print("OFF");}
-//    Serial.print(",");
-//    if (FAN){Serial.print("ON");}else{Serial.print("OFF");}
-//    Serial.print(",");
-//    Serial.print(EXTRACTOR);
-//    Serial.println();
-//  }
-
 
 void writeLCD(){
     switch (screen) {
@@ -281,12 +279,12 @@ void screenZero(){
 
           lcd.setCursor(0, 1);
           lcd.print("T:");
-          lcd.print(DHTData[T_in]);
+          lcd.print(T_IN);
           lcd.print("C");
 
           lcd.setCursor(10, 1);
           lcd.print("HR:");
-          lcd.print(DHTData[HR_in]);
+          lcd.print(HR_IN);
           lcd.print("%");
   }
 void screenOne(){
@@ -296,23 +294,21 @@ void screenOne(){
 
           lcd.setCursor(0, 1);
           lcd.print("T:");
-          lcd.print(DHTData[T_out]);
+          lcd.print(T_OUT);
           lcd.print("C");
 
           lcd.setCursor(10, 1);
           lcd.print("HR:");
-          lcd.print(DHTData[HR_out]);
+          lcd.print(HR_OUT);
           lcd.print("%");
   }
 void screenTwo(){
           lcd.clear();
 
-//          DateTime now = rtc.now();
-//          lcd.setCursor(0, 0);
-//          lcd.print(now.hour());
-//          lcd.print(':');
-//          lcd.print(now.minute());
-
+          lcd.setCursor(0, 0);
+          lcd.print("M:");
+          lcd.print(int(MOI));
+          
           lcd.setCursor(8, 0);
           lcd.print("EXT:");
           lcd.print(EXTRACTOR);
